@@ -1,0 +1,46 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ForeCastWatcher", "ForeCastWatcher.csproj", "{637144D0-595C-450E-AD28-42115D9D301F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ForeCastInstaller", "..\ForeCastInstaller\ForeCastInstaller.vdproj", "{7E9CAC2C-8048-422B-9544-91A2367D1F29}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 3
+		SccProjectUniqueName0 = ForeCastWatcher.csproj
+		SccLocalPath0 = ..
+		CanCheckoutShared = true
+		SccProjectFilePathRelativizedFromConnection0 = ForeCastWatcher\\
+		SccProjectName1 = ForeCastWatcher
+		SccLocalPath1 = ..
+		SccProvider1 = MSSCCI:PushOk\u0020CVS\u0020Proxy
+		CanCheckoutShared = true
+		SccProjectFilePathRelativizedFromConnection1 = ForeCastWatcher\\
+		SolutionUniqueID = {52407365-0DFA-4642-9E0E-8F5EE525FCA5}
+		SccProjectUniqueName2 = ..\\ForeCastInstaller\\ForeCastInstaller.vdproj
+		SccLocalPath2 = ..
+		CanCheckoutShared = true
+		SccProjectFilePathRelativizedFromConnection2 = ForeCastInstaller\\
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{637144D0-595C-450E-AD28-42115D9D301F}.Debug.ActiveCfg = Debug|.NET
+		{637144D0-595C-450E-AD28-42115D9D301F}.Debug.Build.0 = Debug|.NET
+		{637144D0-595C-450E-AD28-42115D9D301F}.Release.ActiveCfg = Release|.NET
+		{637144D0-595C-450E-AD28-42115D9D301F}.Release.Build.0 = Release|.NET
+		{7E9CAC2C-8048-422B-9544-91A2367D1F29}.Debug.ActiveCfg = Debug
+		{7E9CAC2C-8048-422B-9544-91A2367D1F29}.Debug.Build.0 = Debug
+		{7E9CAC2C-8048-422B-9544-91A2367D1F29}.Release.ActiveCfg = Release
+		{7E9CAC2C-8048-422B-9544-91A2367D1F29}.Release.Build.0 = Release
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

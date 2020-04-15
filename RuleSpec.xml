@@ -1,0 +1,904 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<CONFIG>
+
+<!-- Email notification related info -->
+<NOTIFICATION>
+<SMTPSERVER><![CDATA[smtp-out.dell.com]]></SMTPSERVER> 
+<SENDER><![CDATA[useintelligenceadministrator@dell.com]]></SENDER>
+<SUBJECT_SUCCESS><![CDATA[Forecast Uploaded Successfully]]></SUBJECT_SUCCESS>
+<SUBJECT_FAILURE><![CDATA[Error Processing Forecast]]></SUBJECT_FAILURE>
+<EMAIL_LIST>
+  <EMAIL><![CDATA[clickdev@exsyst.com]]></EMAIL>
+  <EMAIL><![CDATA[joel_wright@dell.com]]></EMAIL>
+</EMAIL_LIST>
+</NOTIFICATION>
+<!--- Folder where forecast data will be dropped -->
+<FORECAST_PATH>
+<![CDATA[D:\forecast]]>
+</FORECAST_PATH>
+<!-- Oracle DB Connection String  -->
+<ORACLE_CONNECTION_STRING>
+ <![CDATA[Data Source=eiwd;User id=click;Password=click;Enlist=no;Persist Security Info=no;Pooling=false;Connection Lifetime=0; Max Pool Size=5;Min Pool Size=3;Incr Pool Size=5; Decr Pool Size=2]]>
+</ORACLE_CONNECTION_STRING>
+<!-- Excel Connection String -->
+<EXCEL_CONNECTION_STRING>
+<PROVIDER><![CDATA[Microsoft.Jet.OLEDB.4.0;]]></PROVIDER>
+<PROPERTIES><![CDATA[Extended Properties="Excel 8.0;IMEX=1;";]]></PROPERTIES>
+</EXCEL_CONNECTION_STRING>
+<DECIMAL_ROUNDING><![CDATA[1]]></DECIMAL_ROUNDING>
+<ALLOW_EMAILS><![CDATA[Yes]]></ALLOW_EMAILS>
+<BACKUP_SHEETS><![CDATA[Yes]]></BACKUP_SHEETS>
+<QUARANTINE_SHEETS><![CDATA[Yes]]></QUARANTINE_SHEETS>
+<EVENT_LOGGING><![CDATA[Yes]]></EVENT_LOGGING>
+<!-- Validation Script -->
+<SCRIPT>
+<![CDATA[
+////////////////////////////////////////////////////////////////////
+//
+//   Script To Validate the Contents of Forecast data
+//   This is being written to stringently check data integrity
+//   problem associated with taking input from an Excel file 
+//
+//   
+//
+//             
+//             
+//
+
+
+
+
+
+BOOLEAN  bResult;         // A boolean variable to maintain error state
+NUMERIC OrdC;             // Order Cancel Factor
+String ErrorString;       // Variable to maintain Errors
+STRING Country;           // Country 
+String Currency;          // Currency
+String Segment;           // Segment    
+STRING Email;             // Email of the Person who updates spreadsheet 
+NUMERIC nCount;           // Number of records
+NUMERIC INDEX;            // INDEX  
+
+///////////////////////////////////////////////////////////
+//
+//  Set the status word to true. 
+//
+//
+
+bResult = true;
+
+
+////////////////////////////////////////
+//
+// Routine to check validity of hourly status
+//
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//  Check whether Proper heading is available in each of the worksheet
+//  A Predicate (  Function ) by the name CHECKHEADER can be used to 
+//  check whether a proper heading is available in each of the work sheets
+//
+//  
+//
+//
+
+BEGIN
+
+
+VALIDATE CHECKHEADER(%(CONTROL.NAME),%(CONTROL.VALUE));
+
+EXCEPTION
+
+WRITELOG  "CONTROL Worksheet needs proper heading having the names NAME , VALUE " ;
+bResult = false;
+
+END
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//  Check whether a Valid Heading is available for CLICKSTREAM  worksheet 
+//
+//
+
+BEGIN
+
+VALIDATE CHECKHEADER(%(CLICKSTREAM.DATE),%(CLICKSTREAM.TOTAL_SITE_VISITS),%(CLICKSTREAM.TOTAL_STORE_VISITS));
+
+EXCEPTION
+
+WRITELOG  "CLICK STREAM WORKSHEET NEEDS PROPER HEADING";
+WRITELOG  "COLUMN NAMES SHOULD BE DATE,TOTAL_SITE_VISITS,TOTAL_STORE_VISITS";
+
+bResult = false;
+
+END
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//  Check whether a Valid Heading is available for LINKTRACKER  worksheet 
+//
+//
+
+BEGIN
+
+VALIDATE CHECKHEADER(%(LINKTRACKER.DATE),%(LINKTRACKER.DGV_CODE));
+VALIDATE CHECKHEADER(%(LINKTRACKER.ODG_CLICKS),%(LINKTRACKER.ODG_REVENUE),%(LINKTRACKER.ODG_ORDER_COUNT));
+
+EXCEPTION
+
+WRITELOG  "LINK TRACKER WORKSHEET NEEDS PROPER HEADING";
+WRITELOG  "COLUM NAMES SHOULD BE DATE,DGV_CODE,ODG_CLICKS,ODG_REVENUE,ODG_ORDER_COUNT";
+
+bResult = false;
+
+END
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//  Check whether a Valid Heading is available for OB_ORDER_COUNT  worksheet 
+//
+//
+
+BEGIN
+
+
+VALIDATE CHECKHEADER(%(OB_ORDER_COUNT.DATE),%(OB_ORDER_COUNT.ONLINE_ORDER_TYPE),%(OB_ORDER_COUNT.ORDER_COUNT));
+
+
+EXCEPTION
+
+WRITELOG  "OB_ORDER_COUNT WORKSHEET NEEDS PROPER HEADING";
+WRITELOG  "COLUMN NAMES SHOULD BE DATE,ONLINE_ORDER_TYPE and ORDER_COUNT";
+
+bResult = false;
+
+END
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//  HOURLY DISTRIBUITON WORK SHEET 
+//
+//
+
+BEGIN
+
+VALIDATE CHECKHEADER(%(HOURLY_DISTRIBUTION.DAY),%(HOURLY_DISTRIBUTION.HOUR),%(HOURLY_DISTRIBUTION.PERCENT));
+
+
+EXCEPTION
+
+WRITELOG  "HOURLY_DISTRIBUTION WORKSHEET NEEDS PROPER HEADING";
+WRITELOG  "COLUMN HEADINGS SHOULD BE DAY,HOUR,PERCENT";
+bResult = false;
+
+END
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//  OB_REVENUE_UNITS  Header Check 
+//
+//
+BEGIN
+
+VALIDATE CHECKHEADER(%(OB_REVENUE_UNITS.DATE),%(OB_REVENUE_UNITS.BRAND_ID));
+VALIDATE CHECKHEADER(%(OB_REVENUE_UNITS.REVENUE),%(OB_REVENUE_UNITS.SYSTEM_UNITS));
+
+EXCEPTION
+
+WRITELOG  "OB_REVENUE_UNITS WORKSHEET NEEDS PROPER HEADING";
+WRITELOG  "COLUMN HEADINGS SHOULD BE DATE,BRAND_ID,REVENUE,SYSTEM_UNITS";
+bResult = false;
+
+END
+
+
+
+
+///////////////////////////////////////
+//
+//  Reset the Error code
+//
+
+bResult = true;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//  Cleanyup processing is an attempt to find records which is physical for Excel driver
+//  where as for a user ..data in the cells will not be visible etc ( Space, Tab )
+//
+
+BEGIN
+
+VALIDATE CLEANUP(%(LINKTRACKER.DATE),%(LINKTRACKER.DGV_CODE));
+
+EXCEPTION
+
+WRITELOG  "LINK TRACKER WORKSHEET HAS GOT INVALID DATA";
+WRITELOG  "PLS LOOK FOR EMPTY RECORDS IN BETWEEN PROPER RECORDS";
+
+bResult = false;
+
+END
+
+////////////////////////////////////////
+//
+//  Clean up clickstream
+//
+//
+BEGIN
+
+VALIDATE CLEANUP(%(CLICKSTREAM.DATE));
+
+EXCEPTION
+
+
+WRITELOG  "CLICKSTREAM  WORKSHEET HAS GOT INVALID DATA";
+WRITELOG  "PLS LOOK FOR EMPTY RECORDS IN BETWEEN PROPER RECORDS";
+
+
+bResult = false;
+
+END
+
+/////////////////////////////////////////////
+//
+//  Clean up OB_REVENUE_UNITS
+//
+BEGIN
+
+VALIDATE CLEANUP(%(OB_REVENUE_UNITS.DATE),%(OB_REVENUE_UNITS.BRAND_ID));
+
+EXCEPTION
+
+WRITELOG  "OB_REVENUE_UNITS  WORKSHEET HAS GOT INVALID DATA";
+WRITELOG  "PLS LOOK FOR EMPTY RECORDS IN BETWEEN PROPER RECORDS";
+
+bResult = false;
+
+END
+
+/////////////////////////////////////////////
+//
+//  Clean up OB_ORDER_COUNT
+//
+BEGIN
+
+VALIDATE CLEANUP(%(OB_ORDER_COUNT.DATE),%(OB_ORDER_COUNT.ONLINE_ORDER_TYPE));
+
+EXCEPTION
+
+WRITELOG  "OB_ORDER_COUNT  WORKSHEET HAS GOT INVALID DATA";
+WRITELOG  "PLS LOOK FOR EMPTY RECORDS IN BETWEEN PROPER RECORDS";
+
+bResult = false;
+
+END
+
+/////////////////////////////////////////////////////////////////
+//
+// CLEANUP HOURLY_DISTRIBUTION
+//
+
+BEGIN
+
+VALIDATE CLEANUP(%(HOURLY_DISTRIBUTION.DAY),%(HOURLY_DISTRIBUTION.HOUR));
+
+EXCEPTION
+
+WRITELOG  "HOURLY_DISTRIBUTION  WORKSHEET HAS GOT INVALID DATA";
+WRITELOG  "PLS LOOK FOR EMPTY RECORDS IN BETWEEN PROPER RECORDS";
+
+bResult = false;
+
+END
+
+/////////////////////////////////////////////////////////////////////////
+//  
+//  STOP The Processing. 
+//
+
+IF bResult == false then
+   
+   STOP -1;
+   
+endif
+
+bResult = true;
+
+
+////////////////////////////////////////////////////////////////////
+//
+//  Check For duplicate records to avoid primary key violation 
+//
+//
+
+
+
+BEGIN 
+
+VALIDATE  DUPE_CHECK(%(OB_ORDER_COUNT.DATE),%(OB_ORDER_COUNT.ONLINE_ORDER_TYPE));
+
+EXCEPTION
+
+WRITELOG "OB_ORDERCOUNT worksheet has got duplicate data";
+WRITELOG "PLS. CHECK FOR DATA AND ONLINE_ORDER_TYPE is EQUAL in two places";
+
+bResult = false;
+
+END
+
+//////////////////////////////////////////////////
+//
+//
+//
+//
+//
+//
+
+BEGIN 
+
+VALIDATE  DUPE_CHECK(%(OB_REVENUE_UNITS.DATE),%(OB_REVENUE_UNITS.BRAND_ID));
+
+EXCEPTION
+
+WRITELOG "OB_REVENUE_UNITS worksheet has got duplicate data";
+WRITELOG "PLS. CHECK FOR DATE AND BRAND_ID EQUAL in two places";
+
+bResult = false;
+
+END
+
+//////////////////////////////////////////////////
+//
+//
+//  LINKTRACKER Duplication check
+//
+//
+//
+
+BEGIN 
+
+VALIDATE  DUPE_CHECK(%(LINKTRACKER.DATE),%(LINKTRACKER.DGV_CODE));
+
+EXCEPTION
+
+WRITELOG "LINK TRACKER  worksheet has got duplicate data";
+WRITELOG "PLS. CHECK FOR DATE AND DGVCODE  EQUAL in two places";
+
+bResult = false;
+
+END
+
+
+//////////////////////////////////////////////////
+//
+//
+//  LINKTRACKER Duplication check
+//
+//
+//
+
+BEGIN 
+
+VALIDATE  DUPE_CHECK(%(CLICKSTREAM.DATE));
+
+EXCEPTION
+
+WRITELOG "CLICKSTREAM  worksheet has got duplicate data";
+WRITELOG "PLS. CHECK FOR DATE duplication ";
+
+bResult = false;
+
+END
+
+///////////////////////////////////////////
+//
+// Return with primary key violation or null data
+//
+IF bResult == false then
+   
+   STOP -1;
+   
+endif
+
+bResult = true;
+
+
+///////////////////////////////////////////
+//
+//  IF null is found
+//
+
+BEGIN 
+
+VALIDATE  !CHECK_FOR_NULL(%(OB_REVENUE_UNITS.REVENUE),%(OB_REVENUE_UNITS.SYSTEM_UNITS));
+
+EXCEPTION
+
+WRITELOG "NULL VALUE OR INVALID TYPE FOUND in OB_REVENUE_UNITS";
+WRITELOG "PLS. CHECK FOR REVENUE AND SYSTEM_UNITS COLUMN";
+
+bResult = false;
+
+END
+
+///////////////////////////////////////////
+//
+//  IF null is found
+//
+
+BEGIN 
+
+VALIDATE  !CHECK_FOR_NULL(%(OB_ORDER_COUNT.ORDER_COUNT));
+
+EXCEPTION
+
+WRITELOG "NULL VALUE OR INVALID TYPE FOUND in OB_ORDER_COUNT";
+WRITELOG "PLS. CHECK FOR ORDER_COUNT COLUMN";
+
+bResult = false;
+
+END
+
+
+///////////////////////////////////////////
+//
+//  IF null is found
+//
+
+BEGIN 
+
+VALIDATE  !CHECK_FOR_NULL(%(LINKTRACKER.ODG_CLICKS),%(LINKTRACKER.ODG_ORDER_COUNT),%(LINKTRACKER.ODG_REVENUE));
+
+EXCEPTION
+
+WRITELOG "NULL VALUE OR INVALID TYPE FOUND in LINKTRACKER"+"\r\n";
+WRITELOG "PLS. CHECK  ODG_CLICKS,ODG_ORDER_COUNT , ODG_REVENUE COLUMN"+"\r\n";
+
+bResult = false;
+
+END
+
+///////////////////////////////////////////
+//
+//  IF null is found
+//
+BEGIN 
+
+VALIDATE  !CHECK_FOR_NULL(%(CLICKSTREAM.TOTAL_SITE_VISITS),%(CLICKSTREAM.TOTAL_STORE_VISITS));
+
+EXCEPTION
+
+WRITELOG "NULL VALUE OR INVALID TYPE FOUND in CLICKSTREAM";
+WRITELOG "PLS. CHECK  TOTAL_SITE_VISITS , TOTAL_STORE_VISITS column";
+
+bResult = false;
+
+END
+
+///////////////////////////////////////////
+//
+// Return with primary key violation or null data
+//
+IF bResult == false then
+   
+   STOP -1;
+   
+endif
+
+bResult = true;
+
+
+
+//
+//  Retrieve Order Cancel Factor
+//  
+//
+//
+
+OrdC = VAL(#(CONTROL.Value(4)));
+
+//
+//  Retrieve the currency from Control Work sheet  
+
+Currency = #(CONTROL.Value(3));
+
+// 
+//  Retrieve the Currency
+
+Country = #(CONTROL.Value(0));
+
+//
+//  Retrieve the segment
+
+Segment = #(CONTROL.Value(1));
+
+////////////////////////////////////
+//
+// Email of the person who updated the spreadsheet
+//
+
+Email = #(CONTROL.Value(8));
+
+
+/////////////////////////////////////////////////////////////
+//
+//
+//
+//
+
+
+BEGIN
+
+VALIDATE ISVALIDCURRENCY(Currency);
+
+EXCEPTION
+
+////////////////////////////////////////////////
+//
+//
+//
+
+WRITELOG  "NOT A valid Currency " + Currency;
+bResult = false;
+
+END
+
+
+///////////////////////////////////////////////////////////////
+//
+//
+//  Check Whether Country code exists 
+//
+//
+//
+
+BEGIN 
+
+ VALIDATE  LOOKUP($(CONTROL.B2),@(Country.Country_CODE))==TRUE;
+
+EXCEPTION 
+
+ ErrorString = "Country Code in the Control worksheet is  invalid";
+ WRITELOG  ErrorString;
+ bResult = false;
+
+END 
+
+
+///////////////////////////////////////////////////////////////////////
+//
+// whether segment code in the file exists
+//
+//
+//
+BEGIN 
+
+  VALIDATE  LOOKUP($(CONTROL.B3),@(EI_SEGMENT_MAPPING.EI_SEGMENT_CODE))==TRUE;
+
+EXCEPTION
+
+   ErrorString = "Segment Code in the Control not found";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////
+//
+//  whether TimeZone in the file exists
+//
+//
+//
+BEGIN 
+
+  VALIDATE  LOOKUP($(CONTROL.B4),@(TIMEZONE.GMT_NAME))==TRUE;
+
+EXCEPTION
+
+   ErrorString = "INVALID TIMEZONE";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+/////////////////////////////////////////////////
+//
+//
+//
+
+IF bResult == false THEN
+
+STOP -1;
+
+endif
+
+
+bResult = true;
+
+/////////////////////////////////////////////////////////
+//
+//
+// check whether DGV_CODE in the LINKTRACKER EXISTS IN
+// master file 
+//
+BEGIN
+
+ VALIDATE  SCAN(%(LINKTRACKER.DGV_CODE),@(LS_DGV_CODE.DVG_CODE)) == TRUE;
+   
+EXCEPTION
+
+WRITELOG "DGVCODE not found in a Table ";
+bResult = false;
+
+END
+
+/////////////////////////////////////////////////////////
+//
+//
+// check whether ONLINE_ORDER_TYPE in OB_ORDER_COUNT matches
+// ONLINE_ORDER_TYPE in the ONLINE_ORDER_TYPE table
+//
+BEGIN
+
+ VALIDATE  SCAN(%(OB_ORDER_COUNT.ONLINE_ORDER_TYPE),@(ONLINE_ORDER_TYPE.ONLINE_ORDER_TYPE)) == TRUE;
+   
+EXCEPTION
+
+WRITELOG "ONLINE_ORDER_TYPE does not match ONLINE_ORDER_TYPE in the DB ";
+bResult = false;
+
+END
+
+BEGIN
+
+/////////////////////////////////////////////////////
+//  
+//  whether a brand_id is valid 
+//
+//
+
+VALIDATE SCAN_BRANDID();
+
+EXCEPTION
+
+WRITELOG  "INVALID BRAND ID IN THE WORKSHEET";
+bResult = false;
+
+END
+
+NUMERIC Rec_c;
+
+Rec_c = RecordCount("HOURLY_DISTRIBUTION");
+
+
+IF ( Rec_c <> 168 ) THEN 
+
+WRITELOG  "# of entries should be 168 in HOURLY_DISTRIBUTION worksheet ";
+
+STOP -1; 
+
+ENDIF
+
+
+
+
+BEGIN
+
+VALIDATE  CHECK_HOURLYDISTRIBUTION();
+
+EXCEPTION
+WRITELOG  "PLS. CORRECT THE HOURLY_DISTRIBUTION Worksheet";
+stop -1;
+
+END
+
+
+////////////////////////////////////////////////////////////////////
+//
+//  Validate all the cells in the hourly_distribution worksheet
+//
+//
+//
+
+Boolean range_flag;
+NUMERIC sum_value;
+
+BEGIN 
+ 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C2),$(HOURLY_DISTRIBUTION.C25))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C2),$(HOURLY_DISTRIBUTION.C25)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C2-C25";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//
+//
+//
+
+
+BEGIN 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C26),$(HOURLY_DISTRIBUTION.C49))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C26),$(HOURLY_DISTRIBUTION.C49)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C26-C49";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+BEGIN 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C50),$(HOURLY_DISTRIBUTION.C73))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C50),$(HOURLY_DISTRIBUTION.C73)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C50-C73";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+BEGIN 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C74),$(HOURLY_DISTRIBUTION.C97))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C74),$(HOURLY_DISTRIBUTION.C97)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C74-C97";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+BEGIN 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C98),$(HOURLY_DISTRIBUTION.C121))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C98),$(HOURLY_DISTRIBUTION.C121)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C98-C121";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+BEGIN 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C122),$(HOURLY_DISTRIBUTION.C145))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C122),$(HOURLY_DISTRIBUTION.C145)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C122-C145";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+BEGIN 
+ 
+ range_flag = SUM_RANGE($(HOURLY_DISTRIBUTION.C146),$(HOURLY_DISTRIBUTION.C169))  == 100.0;
+ range_flag =  range_flag ||  SUM_RANGE($(HOURLY_DISTRIBUTION.C146),$(HOURLY_DISTRIBUTION.C169)) == 0.0;
+ 
+ 
+ VALIDATE range_flag;
+          
+                 
+ 
+
+EXCEPTION
+
+   ErrorString = "FAILED WHILE VALIDATING HOURLY_DISTRIBUTION WorkSheet in the range C146-C169";
+   WRITELOG  ErrorString;
+   bResult = false;
+
+END 
+
+
+
+
+///////////////////////////////////////////////////////////////////////
+//
+//  Check Order cancel factor less than 25% and > 0 
+//
+//
+//
+
+BEGIN 
+
+  VALIDATE ( OrdC < 25 && OrdC >= 0 );
+
+EXCEPTION
+   
+  WRITELOG "Order Cancel factor not less than 25 Or value is negative";
+  bResult = false;
+
+END
+
+
+///////////////////////////////////////////
+//
+//  Stop processing
+//
+
+IF ( bResult == false ) then
+       STOP -1; 
+ELSE
+       // Finish processing with no error 
+       STOP 0; 
+ENDIF
+                  
+]]>
+</SCRIPT>
+</CONFIG>
